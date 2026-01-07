@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My 3D Shooter</title>
+    <style> body { margin: 0; overflow: hidden; } </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Ground
+        const grid = new THREE.GridHelper(100, 100);
+        scene.add(grid);
+
+        // Player Models (Other people)
+        let otherPlayers = {};
+
+        socket.on('updatePlayers', (serverPlayers) => {
+            for (let id in serverPlayers) {
+                if (id === socket.id) continue; // Skip myself
+                
+                if (!otherPlayers[id]) {
+                    // Create a box for the new player
+                    const geo = new THREE.BoxGeometry(1, 2, 1);
+                    const mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                    otherPlayers[id] = new THREE.Mesh(geo, mat);
+                    scene.add(otherPlayers[id]);
+                }
+                // Update position
+                otherPlayers[id].position.set(serverPlayers[id].x, 1, serverPlayers[id].z);
+            }
+        });
+
+        // Basic Camera/Movement Logic
+        camera.position.y = 1.6; // Eyes height
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+            
+            // Send our position to server
+            socket.emit('move', { x: camera.position.x, y: camera.position.y, z: camera.position.z });
+        }
+        animate();
+    </script>
+</body>
+</html>
